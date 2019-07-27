@@ -1,0 +1,104 @@
+diff --git a/drivers/ssb/driver_chipcommon.c b/drivers/ssb/driver_chipcommon.c
+index 7cb7d2c8fd86..e19b577253f5 100644
+--- a/drivers/ssb/driver_chipcommon.c
++++ b/drivers/ssb/driver_chipcommon.c
+@@ -653,8 +653,10 @@ int ssb_chipco_serial_init(struct ssb_chipcommon *cc,
+			      & SSB_CHIPCO_CLKDIV_UART;
+		} else {
+			/* Fixed internal backplane clock */
+-			baud_base = 88000000;
+-			div = 48;
++			// Not sure why the ecos source use 133000000
++			// ToDo check ssb_clockspeed
++			baud_base = 100000000;
++			div = 1; //?
+		}
+ 
+		/* Clock source depends on strapping if UartClkOverride is unset */
+diff --git a/drivers/ssb/driver_mipscore.c b/drivers/ssb/driver_mipscore.c
+index f87efef42252..41992e768a5a 100644
+--- a/drivers/ssb/driver_mipscore.c
++++ b/drivers/ssb/driver_mipscore.c
+@@ -72,10 +72,11 @@ static const u32 ipsflag_irq_shift[] = {
+ 
+ static inline u32 ssb_irqflag(struct ssb_device *dev)
+ {
+-	u32 tpsflag = ssb_read32(dev, SSB_TPSFLAG);
+-	if (tpsflag)
+-		return ssb_read32(dev, SSB_TPSFLAG) & SSB_TPSFLAG_BPFLAG;
+-	else
++	// Disable since the BCM53312 can't access the TPSFLAG
++	//u32 tpsflag = ssb_read32(dev, SSB_TPSFLAG);
++	//if (tpsflag)
++	//      return ssb_read32(dev, SSB_TPSFLAG) & SSB_TPSFLAG_BPFLAG;
++	//else
+		/* not irq supported */
+		return 0x3f;
+ }
+diff --git a/drivers/ssb/scan.c b/drivers/ssb/scan.c
+index b9429df583eb..a4877be672ab 100644
+--- a/drivers/ssb/scan.c
++++ b/drivers/ssb/scan.c
+@@ -22,6 +22,18 @@
+ 
+ #include "ssb_private.h"
+ 
++typedef struct sb_cores_map {
++	char    *core_name;
++	uint    core_base;
++	uint    core_id;
++} sb_cored_map_t;
++
++static sb_cored_map_t bcm56218_cores_map[] = {
++	{ "Chipcommon", 0x18000000, SSB_DEV_CHIPCOMMON   },
++	{ "mips",       0x18005000, SSB_DEV_MIPS },
++	{ "memc",       0x18008000, SSB_DEV_MEMC_SDRAM },
++	{ NULL,         0,          0       },
++};
+ 
+ const char *ssb_core_name(u16 coreid)
+ {
+@@ -339,26 +351,22 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 		bus->mmio = mmio;
+ 	}
+ 
+-	/* Fetch basic information about each core/device */
+-	for (i = 0, dev_i = 0; i < bus->nr_devices; i++) {
+-		err = scan_switchcore(bus, i);
+-		if (err)
+-			goto err_unmap;
++	sb_cored_map_t  *core_map = bcm56218_cores_map;
++	
++	dev_i = 0;
++	while (core_map->core_name) {
+ 		dev = &(bus->devices[dev_i]);
+-
+-		idhi = scan_read32(bus, i, SSB_IDHIGH);
+-		dev->id.coreid = (idhi & SSB_IDHIGH_CC) >> SSB_IDHIGH_CC_SHIFT;
+-		dev->id.revision = (idhi & SSB_IDHIGH_RCLO);
+-		dev->id.revision |= (idhi & SSB_IDHIGH_RCHI) >> SSB_IDHIGH_RCHI_SHIFT;
+-		dev->id.vendor = (idhi & SSB_IDHIGH_VC) >> SSB_IDHIGH_VC_SHIFT;
+-		dev->core_index = i;
++		dev->id.coreid = core_map->core_id;
++		dev->id.revision = 0;
++		dev->id.vendor = 0;
++		dev->core_index = (core_map->core_base - SSB_ENUM_BASE)/ SSB_CORE_SIZE;
+ 		dev->bus = bus;
+ 		dev->ops = bus->ops;
+ 
+ 		printk(KERN_DEBUG PFX
+ 			    "Core %d found: %s "
+ 			    "(cc 0x%03X, rev 0x%02X, vendor 0x%04X)\n",
+-			    i, ssb_core_name(dev->id.coreid),
++			    dev->core_index, ssb_core_name(dev->id.coreid),
+ 			    dev->id.coreid, dev->id.revision, dev->id.vendor);
+ 
+ 		switch (dev->id.coreid) {
+@@ -432,6 +440,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 			break;
+ 		}
+ 
++		core_map++;
+ 		dev_i++;
+ 	}
+ 	bus->nr_devices = dev_i;
