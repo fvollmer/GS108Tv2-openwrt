@@ -1,20 +1,30 @@
 diff --git a/drivers/ssb/driver_chipcommon.c b/drivers/ssb/driver_chipcommon.c
-index 7cb7d2c8fd86..e19b577253f5 100644
+index 7cb7d2c8fd86..9c6d610522e1 100644
 --- a/drivers/ssb/driver_chipcommon.c
 +++ b/drivers/ssb/driver_chipcommon.c
-@@ -653,8 +653,10 @@ int ssb_chipco_serial_init(struct ssb_chipcommon *cc,
-			      & SSB_CHIPCO_CLKDIV_UART;
-		} else {
-			/* Fixed internal backplane clock */
+@@ -610,7 +610,8 @@ int ssb_chipco_serial_init(struct ssb_chipcommon *cc,
+ 	unsigned int ccrev = cc->dev->id.revision;
+ 
+ 	plltype = (cc->capabilities & SSB_CHIPCO_CAP_PLLT);
+-	irq = ssb_mips_irq(cc->dev);
++	// FixMe: ssb_mips_irq(cc->dev) is currently broken, asign statically
++	irq = 1;
+ 
+ 	if (plltype == SSB_PLLTYPE_1) {
+ 		/* PLL clock */
+@@ -653,8 +654,10 @@ int ssb_chipco_serial_init(struct ssb_chipcommon *cc,
+ 			      & SSB_CHIPCO_CLKDIV_UART;
+ 		} else {
+ 			/* Fixed internal backplane clock */
 -			baud_base = 88000000;
 -			div = 48;
 +			// Not sure why the ecos source use 133000000
 +			// ToDo check ssb_clockspeed
 +			baud_base = 100000000;
 +			div = 1; //?
-		}
+ 		}
  
-		/* Clock source depends on strapping if UartClkOverride is unset */
+ 		/* Clock source depends on strapping if UartClkOverride is unset */
 diff --git a/drivers/ssb/driver_mipscore.c b/drivers/ssb/driver_mipscore.c
 index f87efef42252..41992e768a5a 100644
 --- a/drivers/ssb/driver_mipscore.c
