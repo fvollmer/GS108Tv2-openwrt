@@ -36,7 +36,7 @@ index f87efef42252..41992e768a5a 100644
 		return 0x3f;
  }
 diff --git a/drivers/ssb/scan.c b/drivers/ssb/scan.c
-index b9429df583eb..a4877be672ab 100644
+index b9429df583eb..651e446dcd69 100644
 --- a/drivers/ssb/scan.c
 +++ b/drivers/ssb/scan.c
 @@ -22,6 +22,18 @@
@@ -58,7 +58,61 @@ index b9429df583eb..a4877be672ab 100644
  
  const char *ssb_core_name(u16 coreid)
  {
-@@ -339,26 +351,22 @@ int ssb_bus_scan(struct ssb_bus *bus,
+@@ -139,6 +151,7 @@ static u8 chipid_to_nrcores(u16 chipid)
+ 	case 0x4306:
+ 		return 6;
+ 	case 0x4310:
++	case 0xC312:
+ 		return 8;
+ 	case 0x4307:
+ 	case 0x4301:
+@@ -293,31 +306,21 @@ int ssb_bus_scan(struct ssb_bus *bus,
+ 	rev |= (idhi & SSB_IDHIGH_RCHI) >> SSB_IDHIGH_RCHI_SHIFT;
+ 
+ 	bus->nr_devices = 0;
+-	if (cc == SSB_DEV_CHIPCOMMON) {
+-		tmp = scan_read32(bus, 0, SSB_CHIPCO_CHIPID);
+-
+-		bus->chip_id = (tmp & SSB_CHIPCO_IDMASK);
+-		bus->chip_rev = (tmp & SSB_CHIPCO_REVMASK) >>
+-				SSB_CHIPCO_REVSHIFT;
+-		bus->chip_package = (tmp & SSB_CHIPCO_PACKMASK) >>
+-				    SSB_CHIPCO_PACKSHIFT;
+-		if (rev >= 4) {
+-			bus->nr_devices = (tmp & SSB_CHIPCO_NRCORESMASK) >>
+-					  SSB_CHIPCO_NRCORESSHIFT;
+-		}
+-		tmp = scan_read32(bus, 0, SSB_CHIPCO_CAP);
+-		bus->chipco.capabilities = tmp;
+-	} else {
+-		if (bus->bustype == SSB_BUSTYPE_PCI) {
+-			bus->chip_id = pcidev_to_chipid(bus->host_pci);
+-			bus->chip_rev = bus->host_pci->revision;
+-			bus->chip_package = 0;
+-		} else {
+-			bus->chip_id = 0x4710;
+-			bus->chip_rev = 0;
+-			bus->chip_package = 0;
+-		}
++
++	tmp = scan_read32(bus, 0, SSB_CHIPCO_CHIPID);
++
++	bus->chip_id = (tmp & SSB_CHIPCO_IDMASK);
++	bus->chip_rev = (tmp & SSB_CHIPCO_REVMASK) >>
++			SSB_CHIPCO_REVSHIFT;
++	bus->chip_package = (tmp & SSB_CHIPCO_PACKMASK) >>
++			    SSB_CHIPCO_PACKSHIFT;
++	if (rev >= 4) {
++	bus->nr_devices = (tmp & SSB_CHIPCO_NRCORESMASK) >>
++			  SSB_CHIPCO_NRCORESSHIFT;
+ 	}
++	tmp = scan_read32(bus, 0, SSB_CHIPCO_CAP);
++	bus->chipco.capabilities = tmp;
++
+ 	ssb_info("Found chip with id 0x%04X, rev 0x%02X and package 0x%02X\n",
+ 		 bus->chip_id, bus->chip_rev, bus->chip_package);
+ 	if (!bus->nr_devices)
+@@ -339,26 +342,22 @@ int ssb_bus_scan(struct ssb_bus *bus,
  		bus->mmio = mmio;
  	}
  
@@ -94,7 +148,7 @@ index b9429df583eb..a4877be672ab 100644
  			    dev->id.coreid, dev->id.revision, dev->id.vendor);
  
  		switch (dev->id.coreid) {
-@@ -432,6 +440,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
+@@ -432,6 +431,7 @@ int ssb_bus_scan(struct ssb_bus *bus,
  			break;
  		}
  
